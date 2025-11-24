@@ -409,7 +409,7 @@ Resolution: Must allow for small screens (iPhone SE).
 
 ## 11. Coding Rules for AI
 
-No God Files: Keep files under 200 lines.
+No God Files: Keep files under 300 lines.
 
 Protocol Driven: Program to GameModule / GameTransport.
 
