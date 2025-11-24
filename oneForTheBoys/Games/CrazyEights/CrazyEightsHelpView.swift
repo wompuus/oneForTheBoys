@@ -7,13 +7,13 @@
 
 import SwiftUI
 
-enum HelpRule {
+enum CrazyEightsHelpRule {
     case shotCaller
     case bomb
 }
 
-struct HelpRuleView: View {
-    let rule: HelpRule
+struct CrazyEightsHelpView: View {
+    let rule: CrazyEightsHelpRule
 
     var body: some View {
         ScrollView {

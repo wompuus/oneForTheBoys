@@ -1,28 +1,16 @@
-//
-//  Untitled.swift
-//  oneForTheBoys
-//
-//  Created by Wyatt Nail on 11/18/25.
-//
-
 import Foundation
 
-struct GameConfig: Codable, Equatable {
-    
-    
-    // Basic flow
+struct CrazyEightsSettings: Codable, Hashable {
+    var settingsVersion: Int = 1
+
     var startingHandCount: Int = 7
 
     // Draw stacking
     var allowStackDraws: Bool = true
-    var allowMixedDrawStacking: Bool = false   // +2 on +4 and +4 on +2
+    var allowMixedDrawStacking: Bool = false
 
-    // Draw & play (hook, not auto-used yet)
+    // Draw & play
     var playAfterDrawIfPlayable: Bool = false
-
-    // UNO penalty
-//    var unoPenaltyEnabled: Bool = false
-//    var unoPenaltyCards: Int = 10              // cards drawn if you fail to call UNO
 
     // Card distribution (0–50 per type)
     var skipPerColor: Int = 10
@@ -36,8 +24,8 @@ struct GameConfig: Codable, Equatable {
 
     // THE BOMB: hidden card that detonates
     var bombEnabled: Bool = false
-    var bombDrawCount: Int = 15                // cards each opponent draws
-    
+    var bombDrawCount: Int = 15
+
     // Can players join in progress?
     var allowJoinInProgress: Bool = false
 }
