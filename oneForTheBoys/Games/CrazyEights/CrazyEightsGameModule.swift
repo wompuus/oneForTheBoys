@@ -11,7 +11,16 @@ enum CrazyEightsAction: Codable {
 }
 
 struct CrazyEightsGameModule: GameModule {
-    static var id: GameID { .crazyEights }
+    private static let registerOnce: Void = {
+        Task { @MainActor in
+            GameRegistry.shared.register(CrazyEightsGameModule.self)
+        }
+    }()
+
+    static var id: GameID {
+        registerOnce
+        return .crazyEights
+    }
 
     static var catalogEntry: GameCatalogEntry {
         GameCatalogEntry(
@@ -58,10 +67,14 @@ struct CrazyEightsGameModule: GameModule {
                 break
             }
 
-            let drawCount = max(1, state.pendingDraw)
-            state.pendingDraw = 0
-            for _ in 0..<drawCount { ceDrawCard(state: &state, to: currIdx) }
-            ceAdvanceTurn(state: &state, skips: 0)
+            let pendingBefore = state.pendingDraw
+            if state.pendingDraw > 0 { state.pendingDraw = max(0, state.pendingDraw - 1) }
+            ceDrawCard(state: &state, to: currIdx)
+            if pendingBefore == 0 {
+                ceAdvanceTurn(state: &state, skips: 0)
+            } else if state.pendingDraw == 0 {
+                ceAdvanceTurn(state: &state, skips: 0)
+            }
         case .intentPlay(let card, let chosen, let targetId):
             guard isHost, state.started, state.winnerId == nil else { break }
             guard let currId = state.currentPlayerId,
@@ -106,6 +119,14 @@ struct CrazyEightsGameModule: GameModule {
                         ceDrawCard(state: &state, to: i)
                     }
                 }
+                let victims = state.players.enumerated().compactMap { idx, p in
+                    idx == currIdx ? nil : p.id
+                }
+                state.bombEvent = CrazyEightsGameState.BombEvent(
+                    triggerId: state.players[currIdx].id,
+                    victimIds: victims,
+                    cardId: card.id
+                )
                 state.clockwise.toggle()
                 skips += 1
                 ceRandomizeBombCard(state: &state)
@@ -113,6 +134,7 @@ struct CrazyEightsGameModule: GameModule {
 
             if state.players[currIdx].hand.isEmpty {
                 state.winnerId = currId
+                state.resultCredited = true
                 state.pendingDraw = 0
                 state.unoCalled.removeAll()
                 state.started = false
@@ -152,7 +174,7 @@ struct CrazyEightsGameModule: GameModule {
         var state = CrazyEightsGameState()
         state.hostId = players.first?.id
         state.players = players.map { profile in
-            CrazyEightsPlayer(id: profile.id, name: profile.username, deviceName: "", hand: [])
+            CrazyEightsPlayer(id: profile.id, name: profile.username, deviceName: "", hand: [], avatar: profile.avatar)
         }
         state.config = settings
         return state
@@ -164,7 +186,7 @@ struct CrazyEightsGameModule: GameModule {
 
     @MainActor
     static func makeView(store: GameStore<CrazyEightsGameState, CrazyEightsAction>) -> AnyView {
-        let localId = store.state.hostId ?? store.state.players.first?.id ?? UUID()
+        let localId = store.localPlayerId ?? store.state.hostId ?? store.state.players.first?.id ?? UUID()
         return AnyView(CrazyEightsGameView(store: store, localPlayerId: localId))
     }
 
@@ -175,7 +197,7 @@ struct CrazyEightsGameModule: GameModule {
 
     @MainActor
     static func makeSettingsView(binding: Binding<CrazyEightsSettings>) -> AnyView {
-        AnyView(EmptyView())
+        AnyView(CrazyEightsSettingsView(settings: binding))
     }
 
     @MainActor
@@ -185,5 +207,9 @@ struct CrazyEightsGameModule: GameModule {
 
     static func defaultSettings() -> CrazyEightsSettings {
         CrazyEightsSettings()
+    }
+
+    static func leaveAction(for playerId: UUID) -> CrazyEightsAction? {
+        .leave(playerId: playerId)
     }
 }

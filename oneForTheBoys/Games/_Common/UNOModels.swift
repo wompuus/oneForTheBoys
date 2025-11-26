@@ -75,7 +75,7 @@ struct GameState: Codable {
     var winnerId: UUID? = nil     // non-nil when someone has won the current round
 
     // Config snapshot for round
-    var config: GameConfig = .init()
+    var config: CrazyEightsSettings = .init()
 
     var currentPlayerId: UUID? {
         guard players.indices.contains(turnIndex) else { return nil }

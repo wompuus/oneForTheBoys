@@ -5,11 +5,20 @@ struct CrazyEightsPlayer: Identifiable, Codable, Equatable {
     var name: String
     var deviceName: String
     var hand: [UNOCard]
+    var avatar: AvatarConfig?
 }
 
 struct CrazyEightsGameState: Codable, Equatable {
+    struct BombEvent: Codable, Equatable {
+        let triggerId: UUID
+        let victimIds: [UUID]
+        let cardId: UUID
+    }
+
     var players: [CrazyEightsPlayer] = []
     var hostId: UUID?
+    var roundId: UUID = UUID()
+    var resultCredited: Bool = false
 
     // Flow
     var turnIndex: Int = 0
@@ -28,6 +37,7 @@ struct CrazyEightsGameState: Codable, Equatable {
     var unoCalled: Set<UUID> = []
     var shotCallerTargetId: UUID? = nil
     var bombCardId: UUID? = nil
+    var bombEvent: BombEvent? = nil
 
     // End-of-round state
     var winnerId: UUID? = nil

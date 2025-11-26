@@ -450,3 +450,7 @@ Modules are Isolated.
 Security is enforced (Hashing/Payload limits).
 
 Offline First.
+
+### Swift 6 Concurrency Notes
+- Prefer `@MainActor`-scoped initializers when touching UIKit (`UIDevice`, etc.) to avoid actor-isolation warnings.
+- Avoid default parameters that query main-actor isolated properties; resolve defaults inside the initializer body instead.

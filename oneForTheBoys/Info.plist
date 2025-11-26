@@ -2,9 +2,11 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>One For The Boys uses local network to discover and connect to nearby players.</string>
 	<key>NSBonjourServices</key>
 	<array>
-		<string>_uno-local._tcp</string>
+		<string>_oftb-p2p._tcp</string>
 	</array>
 </dict>
 </plist>

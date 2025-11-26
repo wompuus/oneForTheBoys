@@ -5,6 +5,14 @@ enum GameID: String, Codable, CaseIterable {
     // case highCard (future)
 }
 
+extension GameID {
+    var displayName: String {
+        switch self {
+        case .crazyEights: return "Crazy Eights"
+        }
+    }
+}
+
 struct GameCatalogEntry {
     let id: GameID
     let displayName: String
@@ -60,6 +68,13 @@ protocol GameModule {
 
     // --- Registry ---
     static func defaultSettings() -> Settings
+
+    /// Optional hook for a module-specific leave action. Default returns nil.
+    static func leaveAction(for playerId: UUID) -> Action?
+}
+
+extension GameModule {
+    static func leaveAction(for playerId: UUID) -> Action? { nil }
 }
 
 protocol GameTransport {

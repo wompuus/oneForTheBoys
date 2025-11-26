@@ -3,11 +3,14 @@ import Foundation
 func ceDealNewRound(state: CrazyEightsGameState) -> CrazyEightsGameState {
     var state = state
     state.winnerId = nil
+    state.resultCredited = false
+    state.roundId = UUID()
     state.turnIndex = 0
     state.clockwise = true
     state.pendingDraw = 0
     state.chosenWildColor = nil
     state.shotCallerTargetId = nil
+    state.bombEvent = nil
     state.unoCalled.removeAll()
     state.started = true
 

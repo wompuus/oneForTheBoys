@@ -3,16 +3,28 @@ import SwiftUI
 func crazyOpponentPosition(index: Int, total: Int, in size: CGSize) -> CGPoint {
     let cx = size.width / 2
     let cy = size.height * 0.22
-    let radius = min(size.width, size.height) * 0.28
+    let radius = min(size.width, size.height) * 0.34
 
-    let startAngle = CGFloat.pi * 5.0 / 6.0
-    let endAngle   = CGFloat.pi * 1.0 / 6.0
-    let t: CGFloat = total <= 1 ? 0.5 : CGFloat(index) / CGFloat(max(total - 1, 1))
-    let angle = startAngle + (endAngle - startAngle) * t
+    let angle = crazyOpponentAngle(index: index, total: total)
 
     let x = cx + cos(angle) * radius
     let y = cy - sin(angle) * radius
     return CGPoint(x: x, y: y)
+}
+
+func crazyOpponentAngle(index: Int, total: Int) -> CGFloat {
+    let startAngle = CGFloat.pi * 5.0 / 6.0
+    let endAngle   = CGFloat.pi * 1.0 / 6.0
+    let t: CGFloat = total <= 1 ? 0.5 : CGFloat(index) / CGFloat(max(total - 1, 1))
+    return startAngle + (endAngle - startAngle) * t
+}
+
+func crazyDeckPosition(in size: CGSize) -> CGPoint {
+    CGPoint(x: size.width * 0.35, y: size.height * 0.45)
+}
+
+func crazyDiscardPosition(in size: CGSize) -> CGPoint {
+    CGPoint(x: size.width * 0.65, y: size.height * 0.45)
 }
 
 func crazySortHand(_ hand: [UNOCard]) -> [UNOCard] {

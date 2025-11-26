@@ -195,6 +195,17 @@ struct DeckView: View {
     }
 }
 
+struct BackCardView: View {
+    var body: some View {
+        RoundedRectangle(cornerRadius: 10)
+            .fill(Color.black.opacity(0.9))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.white.opacity(0.6), lineWidth: 2)
+            )
+    }
+}
+
 // MARK: - Color picker for wild
 
 struct ColorPickerSheet: View {
@@ -202,12 +213,18 @@ struct ColorPickerSheet: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            Text("Choose color")
+            Text("Choose a color")
                 .font(.headline)
-            HStack {
-                ForEach([UNOColor.red, .yellow, .green, .blue]) { c in
-                    Button(c.display) { pick(c) }
-                        .buttonStyle(.borderedProminent)
+            HStack(spacing: 12) {
+                ForEach([UNOColor.red, .yellow, .green, .blue], id: \.self) { c in
+                    Button(action: { pick(c) }) {
+                        Circle()
+                            .fill(c.color)
+                            .frame(width: 44, height: 44)
+                            .overlay(
+                                Circle().stroke(Color.white, lineWidth: 1)
+                            )
+                    }
                 }
             }
         }
@@ -215,148 +232,70 @@ struct ColorPickerSheet: View {
     }
 }
 
-// MARK: - Shot Caller sheet
+// MARK: - Shot caller picker (wild + target)
 
 struct ShotCallerSheet: View {
     let players: [Player]
-    let pick: (UNOColor, UUID?) -> Void
-
-    @State private var selectedColor: UNOColor = .red
-    @State private var selectedPlayer: UUID? = nil
+    let pick: (UNOColor, UUID) -> Void
+    @State private var chosenColor: UNOColor = .red
+    @State private var targetId: UUID?
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("Choose color") {
-                    Picker("Color", selection: $selectedColor) {
-                        ForEach([UNOColor.red, .yellow, .green, .blue]) { c in
-                            Text(c.display).tag(c)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                }
+        VStack(spacing: 16) {
+            Text("Pick color and target").font(.headline)
 
-                Section("Choose target player") {
-                    ForEach(players) { p in
-                        Button(action: { selectedPlayer = p.id }) {
-                            HStack {
-                                Text(p.name)
-                                if selectedPlayer == p.id {
-                                    Spacer()
-                                    Image(systemName: "checkmark")
-                                }
-                            }
-                        }
+            HStack(spacing: 12) {
+                ForEach([UNOColor.red, .yellow, .green, .blue], id: \.self) { c in
+                    Button(action: { chosenColor = c }) {
+                        Circle()
+                            .fill(c.color)
+                            .frame(width: 44, height: 44)
+                            .overlay(
+                                Circle().stroke(chosenColor == c ? Color.white : Color.clear, lineWidth: 2)
+                            )
                     }
-                    if selectedPlayer == nil {
-                        Text("Select who must follow this color")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                Section {
-                    Button("Apply") {
-                        pick(selectedColor, selectedPlayer)
-                    }
-                    .disabled(selectedPlayer == nil)
                 }
             }
-            .navigationTitle("Shot Caller")
+
+            Picker("Target", selection: Binding(
+                get: { targetId ?? players.first?.id },
+                set: { targetId = $0 }
+            )) {
+                ForEach(players) { p in
+                    HStack {
+                        Text(p.name)
+                        if targetId == p.id {
+                            Image(systemName: "checkmark")
+                                .foregroundColor(.green)
+                        }
+                    }
+                    .tag(Optional(p.id))
+                }
+            }
+            .pickerStyle(.wheel)
+
+            Button("Confirm") {
+                if let targetId = targetId ?? players.first?.id {
+                    pick(chosenColor, targetId)
+                }
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding()
+        .onAppear {
+            if targetId == nil { targetId = players.first?.id }
         }
     }
 }
 
-// MARK: - Opponent seat (around the table)
-
-struct OpponentSeatView: View {
-    let player: Player
-    let isCurrentTurn: Bool
-
-    var body: some View {
-        VStack(spacing: 4) {
-            ZStack {
-                // Spotlight glow behind current player
-                if isCurrentTurn {
-                    Ellipse()
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.32),
-                                    Color.white.opacity(0.05)
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                        .blur(radius: 3)
-                        .scaleEffect(x: 0.9, y: 1.6)   // very small & tight
-                        .frame(width: 80, height: 45)  // hard cap on size
-                        .offset(y: -4)                 // tiny nudge upward
-                }
-
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(
-                        LinearGradient(
-                            colors: isCurrentTurn
-                                ? [Color.white.opacity(0.35), Color.white.opacity(0.12)]
-                                : [Color.black.opacity(0.35), Color.black.opacity(0.18)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 70, height: 46)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(
-                                isCurrentTurn
-                                ? Color.white.opacity(0.8)
-                                : Color.white.opacity(0.25),
-                                lineWidth: isCurrentTurn ? 2 : 1
-                            )
-                    )
-                    .shadow(
-                        color: isCurrentTurn
-                            ? Color.white.opacity(0.9)
-                            : Color.black.opacity(0.6),
-                        radius: isCurrentTurn ? 12 : 3,
-                        x: 0,
-                        y: 0
-                    )
-
-                VStack(spacing: 2) {
-                    Text("🃏")
-                    Text("\(player.hand.count)")
-                        .font(.subheadline.bold())
-                }
-                .foregroundStyle(.white)
-            }
-            .scaleEffect(isCurrentTurn ? 1.1 : 1.0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isCurrentTurn)
-
-            Text(player.name)
-                .font(.caption2)
-                .foregroundStyle(.white.opacity(0.9))
-                .lineLimit(1)
-                .frame(width: 80)
-        }
-    }
-}
-
-// MARK: - Back-of-card for draw animations
-
-struct BackCardView: View {
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.black.opacity(0.9))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.white.opacity(0.6), lineWidth: 2)
-                )
-
-            Text("cArDs")
-                .font(.headline.bold())
-                .foregroundStyle(.white)
+private extension UNOColor {
+    var color: Color {
+        switch self {
+        case .red: return .cardRed
+        case .yellow: return .cardYellow
+        case .green: return .cardGreen
+        case .blue: return .cardBlue
+        case .wild: return .black
         }
     }
 }

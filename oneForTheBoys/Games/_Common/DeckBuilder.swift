@@ -8,7 +8,7 @@
 import Foundation
 
 enum DeckBuilder {
-    static func deck(with config: GameConfig) -> [UNOCard] {
+    static func deck(with config: CrazyEightsSettings) -> [UNOCard] {
         var deck: [UNOCard] = []
 
         for color in [UNOColor.red, .yellow, .green, .blue] {
