@@ -20,7 +20,7 @@ struct CrazyEightsHelpView: View {
             VStack(alignment: .leading, spacing: 12) {
                 switch rule {
                 case .shotCaller:
-                    Text("Shot Caller UNO")
+                    Text("Shot Caller")
                         .font(.title2)
                         .bold()
                     Text("When enabled, playing a Wild lets you pick a color and a target player. That player must play the chosen color on their next turn or keep drawing until they can. Only that player is constrained; everyone else plays normally.")

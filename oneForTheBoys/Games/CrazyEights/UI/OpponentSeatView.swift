@@ -3,7 +3,7 @@ import SwiftUI
 struct OpponentSeatView: View {
     let player: CEOpponent
     let isCurrentTurn: Bool
-    let rotationAngle: CGFloat
+    let rotationAngle: CGFloat // retained for API compatibility; not used after flattening rotation
     private let cardsPerRow = 15
     private let maxRows = 1
 
@@ -17,7 +17,7 @@ struct OpponentSeatView: View {
                                 .stroke(isCurrentTurn ? Color.green : Color.clear, lineWidth: 2)
                         )
                 }
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .center, spacing: 2) {
                     Text(player.name)
                         .font(.footnote.bold())
                         .foregroundStyle(.white)
@@ -30,6 +30,7 @@ struct OpponentSeatView: View {
                             .foregroundStyle(.white.opacity(0.8))
                     }
                 }
+                .multilineTextAlignment(.center)
             }
 
             ZStack {
@@ -51,9 +52,10 @@ struct OpponentSeatView: View {
                     .font(.caption.bold())
                     .foregroundStyle(.white)
                     .shadow(radius: 4)
-                    .rotationEffect(.radians(-(rotationAngle + .pi / 2)))
+                    .rotationEffect(.radians((rotationAngle + .pi / 2))) // took out a - before retationAngle
             }
-            .rotationEffect(.radians(rotationAngle + .pi / 2))
+            .rotationEffect(.radians(-(rotationAngle + .pi / 2)))
+            .padding(.top, fanTopPadding)
         }
     }
 
@@ -80,5 +82,10 @@ struct OpponentSeatView: View {
         let y = -cos(angle) * radius - Double(row) * 28.0
         // Rotate card slightly along the arc
         return (CGPoint(x: x, y: y), angle)
+    }
+
+    private var fanTopPadding: CGFloat {
+        let extra = max(0, player.handCount - 10)
+        return 16 + CGFloat(extra) * 0.8
     }
 }

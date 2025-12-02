@@ -26,7 +26,6 @@ struct UnifiedLobbyView: View {
             case .entry:
                 EntryView(
                     displayName: model.displayName,
-                    selectedGameId: $model.selectedGameId,
                     nearbyCount: model.discoveredLobbies.count,
                     onHost: { model.hostTapped() },
                     onJoin: { model.joinTapped() }
@@ -56,6 +55,7 @@ struct UnifiedLobbyView: View {
 
             case .join:
                 JoinLobbyView(
+                    gameId: model.gameSettings.gameId,
                     lobbies: model.discoveredLobbies,
                     players: model.players,
                     readyPlayerIDs: model.readyPlayerIDs,
@@ -94,11 +94,9 @@ struct UnifiedLobbyView: View {
 
 struct EntryView: View {
     let displayName: String
-    @Binding var selectedGameId: GameID
     let nearbyCount: Int
     let onHost: () -> Void
     let onJoin: () -> Void
-    let availableGames: [GameRegistry.AnyModuleDescriptor] = GameRegistry.shared.allDescriptors
 
     var body: some View {
         VStack(spacing: 24) {
@@ -116,16 +114,6 @@ struct EntryView: View {
                     .foregroundStyle(.secondary)
             }
             .padding(.horizontal)
-
-            if !availableGames.isEmpty {
-                Picker("Game", selection: $selectedGameId) {
-                    ForEach(availableGames, id: \.id) { desc in
-                        Text(desc.catalogEntry.displayName).tag(desc.id)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
-            }
 
             VStack(spacing: 12) {
                 Button("Host Game", action: onHost)
@@ -195,7 +183,7 @@ struct HostLobbyView: View {
     let onToggleReady: (Bool) -> Void
     let onStartGame: () -> Void
     let onLeaveLobby: () -> Void
-    @State private var settingsExpanded = false
+    @State private var settingsExpanded = true
 
     var body: some View {
         VStack(spacing: 0) {
@@ -241,7 +229,10 @@ struct HostLobbyView: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(p.username)
                                         .font(.subheadline)
-                                    Text("Games \(p.globalStats.totalGamesPlayed) · Wins \(p.globalStats.totalWins)")
+                                    let stats = p.statsByGameId[gameSettings.gameId]
+                                    let games = stats?.gamesPlayed ?? 0
+                                    let wins = stats?.wins ?? 0
+                                    Text("Games \(games) · Wins \(wins)")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
@@ -289,7 +280,7 @@ struct HostLobbyView: View {
     }
 
     private var canStart: Bool {
-        readyPlayerIDs.count == players.count && players.count >= 2
+        readyPlayerIDs.count == players.count
     }
 
     private var selectedDescriptor: GameRegistry.AnyModuleDescriptor? {
@@ -304,6 +295,7 @@ struct HostLobbyView: View {
 // MARK: - Join Lobby
 
 struct JoinLobbyView: View {
+    let gameId: GameID
     let lobbies: [ConnectivityManager.FoundLobby]
     let players: [PlayerProfile]
     let readyPlayerIDs: Set<UUID>
@@ -377,7 +369,10 @@ struct JoinLobbyView: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(p.username)
                                         .font(.subheadline)
-                                    Text("Games \(p.globalStats.totalGamesPlayed) · Wins \(p.globalStats.totalWins)")
+                                    let stats = p.statsByGameId[gameId]
+                                    let games = stats?.gamesPlayed ?? 0
+                                    let wins = stats?.wins ?? 0
+                                    Text("Games \(games) · Wins \(wins)")
                                         .font(.caption2)
                                         .foregroundStyle(.secondary)
                                 }
@@ -460,7 +455,6 @@ final class LobbyViewModel: ObservableObject {
 
     @Published var screen: LobbyScreen = .entry
     @Published var displayName: String
-    @Published var selectedGameId: GameID = .crazyEights
     @Published var discoveredLobbies: [ConnectivityManager.FoundLobby] = []
     @Published var players: [PlayerProfile] = []
     @Published var gameSettings: LobbyGameSettings = LobbyGameSettings()
@@ -543,7 +537,6 @@ final class LobbyViewModel: ObservableObject {
         localProfile.username = displayName
         hostProfile = localProfile
         players = [localProfile]
-        selectedGameId = gameId
         gameSettings = LobbyGameSettings(gameId: gameId)
         readyPlayerIDs = []
         screen = .host
@@ -575,7 +568,8 @@ final class LobbyViewModel: ObservableObject {
 
     func startGameTapped() {
         guard isHosting else { return }
-        guard readyPlayerIDs.count == players.count, players.count >= 2 else { return }
+        // Allow solo starts; just require everyone marked ready.
+        guard readyPlayerIDs.count == players.count, players.count >= 1 else { return }
         Task {
             let info = await makeLobbyInfo(isStarting: true)
             await connectivity.sendNetworkMessage(.lobbyUpdate(info))
@@ -627,6 +621,7 @@ final class LobbyViewModel: ObservableObject {
                        let decoded = try? JSONDecoder().decode(LobbyGameSettings.self, from: data) {
                         self.gameSettings = decoded
                     }
+                    self.gameSettings.gameId = lobby.gameId
                     if !self.isHosting {
                         self.pollTask?.cancel()
                         self.discoveredLobbies.removeAll()
@@ -646,6 +641,7 @@ final class LobbyViewModel: ObservableObject {
                        let decoded = try? JSONDecoder().decode(LobbyGameSettings.self, from: data) {
                         self.gameSettings = decoded
                     }
+                    self.gameSettings.gameId = lobby.gameId
                     self.connectingLobby = nil
                     self.connectTimeoutTask?.cancel()
                     if !self.isHosting {
@@ -718,7 +714,7 @@ final class LobbyViewModel: ObservableObject {
         let encodedSettings = try? JSONEncoder().encode(gameSettings)
         return LobbyInfo(
             id: await connectivity.currentLobbyId ?? "----",
-            gameId: selectedGameId,
+            gameId: gameSettings.gameId,
             hostProfile: hostProfile ?? localProfile,
             playerProfiles: players,
             readyPlayerIDs: readyPlayerIDs,

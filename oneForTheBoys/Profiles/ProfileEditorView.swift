@@ -67,34 +67,28 @@ struct ProfileEditorView: View {
                             }
                         }
 
-                        if workingProfile.statsByGameId.isEmpty {
-                            Text("No games recorded yet")
-                                .foregroundStyle(.secondary)
-                        } else {
-                            Divider().padding(.vertical, 4)
-                            ForEach(Array(workingProfile.statsByGameId.keys).sorted { $0.rawValue < $1.rawValue }, id: \.self) { key in
-                                if let stats = workingProfile.statsByGameId[key] {
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        HStack {
-                                            Spacer()
-                                            Text(key.displayName)
-                                                .font(.subheadline.weight(.semibold))
-                                            Spacer()
-                                        }
-                                        HStack(spacing: 8) {
-                                            Spacer()
-                                            statPill(title: "Games", value: "\(stats.gamesPlayed)")
-                                            statPill(title: "Wins", value: "\(stats.wins)")
-                                            statPill(title: "Best Streak", value: "\(stats.streakBest)")
-                                            let winPct = winPercentage(total: stats.gamesPlayed, wins: stats.wins)
-                                            statPill(title: "Win %", value: winPct)
-                                            Spacer()
-                                        }
-                                    }
-                                    .padding(.vertical, 4)
-                                    Divider().padding(.vertical, 4)
+                        Divider().padding(.vertical, 4)
+                        ForEach(GameID.allCases, id: \.self) { key in
+                            let stats = workingProfile.statsByGameId[key] ?? GameStats(gamesPlayed: 0, wins: 0, streakCurrent: 0, streakBest: 0)
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack {
+                                    Spacer()
+                                    Text(key.displayName)
+                                        .font(.subheadline.weight(.semibold))
+                                    Spacer()
+                                }
+                                HStack(spacing: 8) {
+                                    Spacer()
+                                    statPill(title: "Games", value: "\(stats.gamesPlayed)")
+                                    statPill(title: "Wins", value: "\(stats.wins)")
+                                    statPill(title: "Best Streak", value: "\(stats.streakBest)")
+                                    let winPct = winPercentage(total: stats.gamesPlayed, wins: stats.wins)
+                                    statPill(title: "Win %", value: winPct)
+                                    Spacer()
                                 }
                             }
+                            .padding(.vertical, 4)
+                            Divider().padding(.vertical, 4)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)

@@ -43,7 +43,7 @@ final class LocalNetworkMonitor: ObservableObject {
                 case .ready:
                     self?.status = .authorized
                 case .failed(let error):
-                    if case .posix(let code) = (error as? NWError), code == .EACCES {
+                    if case .posix(let code) = error, code == .EACCES {
                         self?.status = .denied
                     } else {
                         self?.status = .error(error.localizedDescription)

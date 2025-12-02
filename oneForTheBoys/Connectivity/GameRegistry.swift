@@ -8,7 +8,7 @@ final class GameRegistry {
     @MainActor
     static func bootstrap() {
         GameRegistry.shared.register(CrazyEightsGameModule.self)
-        // Register future modules here.
+        GameRegistry.shared.register(DartsGameModule.self)
     }
 
     struct AnyModuleDescriptor {

@@ -2,6 +2,10 @@ import SwiftUI
 import UIKit
 import MultipeerConnectivity
 
+extension Notification.Name {
+    static let returnToLobbyRequested = Notification.Name("ReturnToLobbyRequested")
+}
+
 enum AppScreen {
     case lobby
     case game
@@ -57,36 +61,35 @@ struct AppRootView: View {
                                 (MCPeerID(displayName: name), pid)
                             })
                             print("[App] start game id=\(lobbySettings.gameId) isHost=\(isHost) players=\(players.count)")
-                            Task {
-                                connectivity.setActiveGame(lobbySettings.gameId)
-                                if let newSession = await GameRegistry.shared.makeSession(
+                            Task { @MainActor in
+                                await connectivity.setActiveGame(lobbySettings.gameId)
+                                guard let newSession = GameRegistry.shared.makeSession(
                                     for: lobbySettings.gameId,
                                     players: players,
                                     settingsData: lobbySettings.activeSettingsData,
                                     transport: connectivity,
                                     isHost: isHost,
                                     localPlayerId: profile.id
-                                ) {
-                                    newSession.registerWithRouter(router) // register before activation
-                                    await router.activate()
-                                    print("[App] session registered and router active")
-                                await MainActor.run {
-                                    session = newSession
-                                    screen = .game
-                                }
+                                ) else { return }
+
+                                newSession.registerWithRouter(router) // register before activation
+                                await router.activate()
+                                print("[App] session registered and router active")
+                                session = newSession
+                                screen = .game
                                 router.onHostLeft = { reason in
                                     hostLeftReason = reason
                                     forceLeaveToLobby()
                                 }
-                                    if isHost {
-                                        setupHostDisconnectHandler(session: newSession)
-                                        if let payload = newSession.encodeState() {
-                                            await connectivity.sendNetworkMessage(.gameState(gameId: newSession.gameId, payload: payload))
-                                        }
-                                    } else {
-                                        try? await Task.sleep(nanoseconds: 200_000_000)
-                                        await connectivity.sendNetworkMessage(.gameStateRequest(gameId: newSession.gameId))
+
+                                if isHost {
+                                    setupHostDisconnectHandler(session: newSession)
+                                    if let payload = newSession.encodeState() {
+                                        await connectivity.sendNetworkMessage(.gameState(gameId: newSession.gameId, payload: payload))
                                     }
+                                } else {
+                                    try? await Task.sleep(nanoseconds: 200_000_000)
+                                    await connectivity.sendNetworkMessage(.gameStateRequest(gameId: newSession.gameId))
                                 }
                             }
                         },
@@ -129,6 +132,9 @@ struct AppRootView: View {
                     localProfile = loaded
                 }
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .returnToLobbyRequested)) { _ in
+            Task { await gracefulLeaveGame() }
         }
         .sheet(isPresented: Binding(get: { showProfileEditor || (isNewProfile && profileLoaded) }, set: { newValue in
             if !newValue {

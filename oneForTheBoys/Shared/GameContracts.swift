@@ -2,6 +2,7 @@ import SwiftUI
 
 enum GameID: String, Codable, CaseIterable {
     case crazyEights
+    case darts
     // case highCard (future)
 }
 
@@ -9,6 +10,7 @@ extension GameID {
     var displayName: String {
         switch self {
         case .crazyEights: return "Crazy Eights"
+        case .darts: return "Darts"
         }
     }
 }

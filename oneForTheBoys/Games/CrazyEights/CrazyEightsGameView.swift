@@ -6,6 +6,7 @@ struct CEOpponent: Identifiable {
     let name: String
     let handCount: Int
     let avatar: AvatarConfig?
+    let seatSlot: Int
 }
 
 struct CrazyEightsGameView: View {
@@ -15,33 +16,86 @@ let localPlayerId: UUID
     private var myTurn: Bool { state.currentPlayerId == localPlayerId }
     private var gameOver: Bool { state.winnerId != nil }
     private var meIndex: Int? { state.players.firstIndex { $0.id == localPlayerId } }
+    private var seatingOrder: [CrazyEightsPlayer] {
+        guard let hostId = state.hostId,
+              let hostIdx = state.players.firstIndex(where: { $0.id == hostId }) else {
+            return state.players
+        }
+        let tail = state.players[hostIdx...]
+        let head = state.players[..<hostIdx]
+        return Array(tail + head)
+    }
+    private var seatIndexById: [UUID: Int] {
+        var map: [UUID: Int] = [:]
+        for (idx, player) in seatingOrder.enumerated() {
+            map[player.id] = idx
+        }
+        return map
+    }
     private var myHand: [UNOCard] {
-        guard let meIndex else { return [] }
-        return crazySortHand(state.players[meIndex].hand)
+        let hand = rawMyHand()
+        if isBlindedLocal {
+            return applyBlindOrder(hand)
+        }
+        return crazySortHand(hand)
     }
     private var otherPlayers: [CEOpponent] {
-        state.players
-            .filter { $0.id != localPlayerId }
-            .map { CEOpponent(id: $0.id, name: $0.name, handCount: $0.hand.count, avatar: $0.avatar) }
+        seatingOrder.compactMap { player in
+            guard player.id != localPlayerId else { return nil }
+            guard let seatIndex = seatIndexById[player.id] else { return nil }
+            let seatSlot = seatIndex
+            return CEOpponent(
+                id: player.id,
+                name: player.name,
+                handCount: player.hand.count,
+                avatar: player.avatar,
+                seatSlot: seatSlot
+            )
+        }
     }
     @State private var activeModal: ActiveModal?
     @State private var bombToShow: CrazyEightsGameState.BombEvent?
     @State private var bombOpacity: Double = 0
+    @State private var bombHideTask: Task<Void, Never>?
+    @State private var bombDrawTask: Task<Void, Never>?
+    @State private var bombResolving: Bool = false
     @State private var flights: [CardFlightOverlay.Flight] = []
     @State private var lastHandCounts: [UUID: Int] = [:]
     @State private var lastDiscardId: UUID?
     @State private var drawLoopTask: Task<Void, Never>?
     @State private var isDrawing = false
     @State private var didAutoStartRound = false
+    @State private var blindOrder: [UUID: Int] = [:]
     private enum ActiveModal: Identifiable {
         case colorPicker(UNOCard)
         case shotCaller(UNOCard)
+        case swapTarget(UNOCard)
+        case fogTarget(UNOCard)
         var id: UUID {
             switch self {
             case .colorPicker(let card), .shotCaller(let card):
                 return card.id
+            case .swapTarget(let card):
+                return card.id
+            case .fogTarget(let card):
+                return card.id
             }
         }
+    }
+
+    private var awaitingSwap: Bool {
+        guard state.config.allowSevenZeroRule,
+              state.players.count > 1,
+              let pending = state.pendingSwapPlayerId else { return false }
+        return state.currentPlayerId == pending && pending == localPlayerId
+    }
+
+    private var isBlindedLocal: Bool {
+        state.blindedPlayerId == localPlayerId && state.blindedTurnsRemaining > 0
+    }
+
+    private var myHandIdsKey: String {
+        rawMyHand().map { $0.id.uuidString }.joined(separator: "|")
     }
 
     var body: some View {
@@ -49,14 +103,18 @@ let localPlayerId: UUID
             ZStack {
                 Color.tableRed.ignoresSafeArea()
 
-                ForEach(Array(otherPlayers.enumerated()), id: \.element.id) { index, p in
-                    let angle = crazyOpponentAngle(index: index, total: otherPlayers.count)
+                ForEach(otherPlayers, id: \.id) { p in
+                    let totalSlots = max(seatingOrder.count, 2)
                     OpponentSeatView(
-                        player: CEOpponent(id: p.id, name: p.name, handCount: p.handCount, avatar: p.avatar),
+                        player: CEOpponent(id: p.id, name: p.name, handCount: p.handCount, avatar: p.avatar, seatSlot: p.seatSlot),
                         isCurrentTurn: state.currentPlayerId == p.id,
-                        rotationAngle: angle
+                        rotationAngle: crazySeatAngle(slot: p.seatSlot, total: totalSlots)
                     )
-                    .position(crazyOpponentPosition(index: index, total: otherPlayers.count, in: geo.size))
+                    .position(crazySeatPosition(
+                        slot: p.seatSlot,
+                        total: totalSlots,
+                        in: geo.size
+                    ))
                 }
 
                 VStack(spacing: 12) {
@@ -91,20 +149,30 @@ let localPlayerId: UUID
                     store.send(.intentPlay(card: card, chosenColor: color, targetId: nil))
                     activeModal = nil
                 }
+            case .swapTarget(let card):
+                SwapHandSheet(
+                    title: "Choose a player to swap hands with",
+                    buttonTitle: "Swap",
+                    players: otherPlayers.map { Player(id: $0.id, name: $0.name, deviceName: "", hand: []) }
+                ) { target in
+                    store.send(.intentPlay(card: card, chosenColor: nil, targetId: nil))
+                    store.send(.swapHand(targetId: target))
+                    activeModal = nil
+                }
+            case .fogTarget(let card):
+                SwapHandSheet(
+                    title: "Choose a player to blind",
+                    buttonTitle: "Apply fog",
+                    players: otherPlayers.map { Player(id: $0.id, name: $0.name, deviceName: "", hand: []) }
+                ) { target in
+                    store.send(.intentPlay(card: card, chosenColor: nil, targetId: target))
+                    activeModal = nil
+                }
             }
         }
         .onChange(of: state.bombEvent) { _, newValue in
             guard let newValue else { return }
-            bombToShow = newValue
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                bombOpacity = 1.0
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
-                withAnimation(.easeOut(duration: 0.3)) { bombOpacity = 0 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                    bombToShow = nil
-                }
-            }
+            handleBombEvent(newValue)
         }
         .onAppear {
             if store.isHost && !state.started && !didAutoStartRound {
@@ -120,12 +188,30 @@ let localPlayerId: UUID
         .onChange(of: state.players.map { $0.hand.count }.joinedDescription) { _, _ in
             handleHandCountChange()
         }
+        .onDisappear {
+            bombHideTask?.cancel()
+            bombDrawTask?.cancel()
+            drawLoopTask?.cancel()
+            bombResolving = false
+        }
+        .onChange(of: isBlindedLocal) { _, newValue in
+            if newValue {
+                updateBlindOrder(for: rawMyHand().map { $0.id })
+            } else {
+                blindOrder.removeAll()
+            }
+        }
+        .onChange(of: myHandIdsKey) { _, _ in
+            if isBlindedLocal {
+                updateBlindOrder(for: rawMyHand().map { $0.id })
+            }
+        }
     }
 
     private var centerStack: some View {
         VStack(spacing: 12) {
             HStack(spacing: 40) {
-                DeckView(canDraw: myTurn && !gameOver && state.started && !isDrawing) {
+                DeckView(canDraw: myTurn && !gameOver && state.started && !isDrawing && !bombResolving && !awaitingSwap) {
                     handleDrawTap()
                 }
 
@@ -135,18 +221,37 @@ let localPlayerId: UUID
                 }
             }
 
-            if let chosen = state.chosenWildColor {
-                VStack(spacing: 4) {
-                    Text("Wild color: \(chosen.display)")
+            if !state.shotCallerDemands.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Shot Caller")
                         .font(.subheadline)
                         .foregroundStyle(.yellow)
-                    if state.config.shotCallerEnabled,
-                       let target = state.shotCallerTargetId {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Target: \(playerName(id: target))")
+                    ForEach(state.shotCallerDemands.keys.sorted(by: { playerName(id: $0) < playerName(id: $1) }), id: \.self) { pid in
+                        let demands = state.shotCallerDemands[pid] ?? []
+                        HStack(spacing: 6) {
+                            Text(playerName(id: pid))
                                 .font(.caption)
                                 .foregroundStyle(.yellow.opacity(0.9))
+                            Text(demands.map { $0.display }.joined(separator: ", "))
+                                .font(.caption2)
+                                .foregroundStyle(.yellow.opacity(0.8))
                         }
+                    }
+                }
+            }
+
+            if state.blindedTurnsRemaining > 0, let foggedId = state.blindedPlayerId {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Fog of War")
+                        .font(.subheadline)
+                        .foregroundStyle(.orange)
+                    HStack(spacing: 6) {
+                        Text(playerName(id: foggedId))
+                            .font(.caption)
+                            .foregroundStyle(.orange.opacity(0.9))
+                        Text("Turns remaining: \(state.blindedTurnsRemaining)")
+                            .font(.caption2)
+                            .foregroundStyle(.orange.opacity(0.8))
                     }
                 }
             }
@@ -168,8 +273,8 @@ let localPlayerId: UUID
             }
 
             HStack(spacing: 16) {
-                if myTurn && myHand.count == 2 && !gameOver && state.started {
-                    Button("UNO") {
+                if myTurn && myHand.count == 2 && !gameOver && state.started && !bombResolving && !awaitingSwap && !isBlindedLocal {
+                    Button("DRAW") {
                         store.send(.callUno(playerId: localPlayerId))
                     }
                     .buttonStyle(.bordered)
@@ -200,11 +305,26 @@ let localPlayerId: UUID
                         && myTurn
                         && !gameOver
                         && state.started
+                        && !bombResolving
+                        && !awaitingSwap
+                        && !isBlindedLocal
+
+                        let canTap =
+                        myTurn
+                        && !gameOver
+                        && state.started
+                        && !bombResolving
+                        && !awaitingSwap
 
                         Button(action: { playTapped(card) }) {
-                            CardView(card: card, isPlayable: playable)
+                            if isBlindedLocal {
+                                BackCardView()
+                                    .frame(width: 70, height: 100)
+                            } else {
+                                CardView(card: card, isPlayable: playable)
+                            }
                         }
-                        .disabled(!playable)
+                        .disabled(!canTap || (!isBlindedLocal && !playable))
                     }
                 }
                 .padding(.horizontal, 12)
@@ -216,14 +336,14 @@ let localPlayerId: UUID
             RoundedRectangle(cornerRadius: 20)
                 .fill(Color.black.opacity(0.18))
                 .overlay {
-                    if myTurn && !gameOver && state.started {
+                    if myTurn && !gameOver && state.started && !bombResolving && !awaitingSwap && !isBlindedLocal {
                         RoundedRectangle(cornerRadius: 20)
                             .stroke(Color.white.opacity(0.9), lineWidth: 2)
                             .shadow(color: Color.white.opacity(0.9), radius: 12)
                     }
                 }
         )
-        .scaleEffect(myTurn && !gameOver && state.started ? 1.03 : 1.0)
+        .scaleEffect(myTurn && !gameOver && state.started && !bombResolving && !awaitingSwap && !isBlindedLocal ? 1.03 : 1.0)
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: myTurn)
     }
 
@@ -235,16 +355,34 @@ let localPlayerId: UUID
 
     private func playTapped(_ card: UNOCard) {
         guard myTurn,
-              state.canPlay(card),
               !gameOver,
-              state.started else { return }
+              state.started,
+              !bombResolving,
+              !awaitingSwap else { return }
+
+        let blinded = isBlindedLocal
+        if !blinded && !state.canPlay(card) { return }
 
         switch card.value {
         case .wild, .wildDraw4:
-            if state.config.shotCallerEnabled && card.value == .wild {
+            if state.config.shotCallerEnabled && card.value == .wild && !blinded {
                 activeModal = .shotCaller(card)
-            } else {
+            } else if !blinded {
                 activeModal = .colorPicker(card)
+            } else {
+                store.send(.intentPlay(card: card, chosenColor: nil, targetId: nil))
+            }
+        case .fog:
+            if state.config.fogEnabled && !otherPlayers.isEmpty && !blinded {
+                activeModal = .fogTarget(card)
+            } else {
+                store.send(.intentPlay(card: card, chosenColor: nil, targetId: nil))
+            }
+        case .number(let n) where n == 7 && state.config.allowSevenZeroRule && !otherPlayers.isEmpty:
+            if isBlindedLocal {
+                store.send(.intentPlay(card: card, chosenColor: nil, targetId: nil))
+            } else {
+                activeModal = .swapTarget(card)
             }
         default:
             store.send(.intentPlay(card: card, chosenColor: nil, targetId: nil))
@@ -256,6 +394,45 @@ let localPlayerId: UUID
             return card
         }
         return UNOCard(id: card.id, color: chosen, value: card.value)
+    }
+
+    private func handleBombEvent(_ event: CrazyEightsGameState.BombEvent) {
+        bombHideTask?.cancel()
+        bombDrawTask?.cancel()
+        drawLoopTask?.cancel()
+        bombResolving = true
+        bombToShow = event
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+            bombOpacity = 1.0
+        }
+        scheduleBombDrawFlights(for: event)
+        bombHideTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: 0.35)) { bombOpacity = 0 }
+            try? await Task.sleep(nanoseconds: 450_000_000)
+            guard !Task.isCancelled else { return }
+            bombToShow = nil
+            bombResolving = false
+        }
+    }
+
+    private func scheduleBombDrawFlights(for event: CrazyEightsGameState.BombEvent) {
+        let victims = event.victimIds
+        let drawCount = max(1, state.config.bombDrawCount)
+        guard !victims.isEmpty else { return }
+
+        // Bomb draws happen on the same state change as the discard, so fire the draw flights directly.
+        bombDrawTask = Task { @MainActor in
+            for _ in 0..<drawCount {
+                if Task.isCancelled { return }
+                for victimId in victims {
+                    addDrawFlight(playerId: victimId)
+                }
+                if Task.isCancelled { return }
+                try? await Task.sleep(nanoseconds: 150_000_000)
+            }
+        }
     }
 
     private func handCounts(from state: CrazyEightsGameState) -> [UUID: Int] {
@@ -343,9 +520,14 @@ let localPlayerId: UUID
         if playerId == localPlayerId {
             return CGPoint(x: size.width / 2, y: size.height * 0.82)
         }
-        let opponents = otherPlayers
-        if let idx = opponents.firstIndex(where: { $0.id == playerId }) {
-            return crazyOpponentPosition(index: idx, total: opponents.count, in: size)
+        if
+            let seatIndex = seatIndexById[playerId]
+        {
+            return crazySeatPosition(
+                slot: seatIndex,
+                total: max(seatingOrder.count, 2),
+                in: size
+            )
         }
         return CGPoint(x: size.width / 2, y: size.height * 0.2)
     }
@@ -361,9 +543,33 @@ let localPlayerId: UUID
         state.players.first(where: { $0.id == id })?.name ?? "Player"
     }
 
+    private func rawMyHand() -> [UNOCard] {
+        guard let meIndex else { return [] }
+        return state.players[meIndex].hand
+    }
+
+    private func applyBlindOrder(_ hand: [UNOCard]) -> [UNOCard] {
+        hand.sorted { lhs, rhs in
+            let l = blindOrder[lhs.id] ?? 0
+            let r = blindOrder[rhs.id] ?? 0
+            return l < r
+        }
+    }
+
+    private func updateBlindOrder(for handIds: [UUID]) {
+        var map = blindOrder
+        for id in handIds where map[id] == nil {
+            map[id] = Int.random(in: 0...Int.max)
+        }
+        for key in Array(map.keys) where !handIds.contains(key) {
+            map.removeValue(forKey: key)
+        }
+        blindOrder = map
+    }
+
     private func handleDrawTap() {
         drawLoopTask?.cancel()
-        guard !isDrawing else { return }
+        guard !isDrawing, !bombResolving, !awaitingSwap else { return }
         isDrawing = true
         drawLoopTask = Task { [weak store] in
             while !Task.isCancelled {
@@ -373,7 +579,8 @@ let localPlayerId: UUID
                 try? await Task.sleep(nanoseconds: 240_000_000)
                 let s = await MainActor.run { store?.state }
                 guard let s else { break }
-                if s.pendingDraw == 0 || s.currentPlayerId != localPlayerId || s.winnerId != nil || !s.started {
+                let isBombing = await MainActor.run { bombResolving }
+                if isBombing || s.pendingDraw == 0 || s.currentPlayerId != localPlayerId || s.winnerId != nil || !s.started {
                     break
                 }
             }

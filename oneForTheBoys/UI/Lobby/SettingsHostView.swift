@@ -20,6 +20,8 @@ struct SettingsHostView: View {
                 switch gameSettings.gameId {
                 case .crazyEights:
                     return (try? JSONEncoder().encode(gameSettings.crazyEights)) ?? Data()
+                case .darts:
+                    return (try? JSONEncoder().encode(gameSettings.darts)) ?? Data()
                 }
             },
             set: { newData in
@@ -27,6 +29,10 @@ struct SettingsHostView: View {
                 case .crazyEights:
                     if let decoded = try? JSONDecoder().decode(CrazyEightsSettings.self, from: newData) {
                         gameSettings.crazyEights = decoded
+                    }
+                case .darts:
+                    if let decoded = try? JSONDecoder().decode(DartsSettings.self, from: newData) {
+                        gameSettings.darts = decoded
                     }
                 }
             }

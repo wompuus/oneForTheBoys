@@ -101,6 +101,8 @@ final class GameTransportRouter {
     private func creditIfNeeded<T, A>(state: T, store: GameStore<T, A>, gameId: GameID) async {
         if gameId == .crazyEights, let ceState = state as? CrazyEightsGameState {
             await StatsTracker.shared.creditCrazyEights(state: ceState, localPlayerId: store.localPlayerId)
+        } else if gameId == .darts, let dartsState = state as? DartsGameState {
+            await StatsTracker.shared.creditDarts(state: dartsState, localPlayerId: store.localPlayerId)
         }
     }
 }

@@ -10,7 +10,11 @@ func ceDealNewRound(state: CrazyEightsGameState) -> CrazyEightsGameState {
     state.pendingDraw = 0
     state.chosenWildColor = nil
     state.shotCallerTargetId = nil
+    state.shotCallerDemands.removeAll()
     state.bombEvent = nil
+    state.blindedPlayerId = nil
+    state.blindedTurnsRemaining = 0
+    state.pendingSwapPlayerId = nil
     state.unoCalled.removeAll()
     state.started = true
 
@@ -66,6 +70,41 @@ func ceRandomizeBombCard(state: inout CrazyEightsGameState) {
     for p in state.players { pool.append(contentsOf: p.hand) }
     pool.append(contentsOf: state.discardPile)
     state.bombCardId = pool.randomElement()?.id
+}
+
+func ceIsBombCard(_ card: UNOCard, state: CrazyEightsGameState) -> Bool {
+    guard state.config.bombEnabled else { return false }
+    let isNumberCard: Bool
+    if case .number = card.value {
+        isNumberCard = true
+    } else {
+        isNumberCard = false
+    }
+
+    if state.config.debugAllNumbersAreBombs && isNumberCard {
+        return true
+    }
+
+    guard let bomb = state.bombCardId else { return false }
+    return bomb == card.id
+}
+
+func ceRotateHands(state: inout CrazyEightsGameState) {
+    guard state.players.count > 1 else { return }
+    let hands = state.players.map { $0.hand }
+    for idx in state.players.indices {
+        let from = (idx + 1) % state.players.count
+        state.players[idx].hand = hands[from]
+    }
+}
+
+func ceAdvanceBlindTimer(state: inout CrazyEightsGameState, finishedPlayerId: UUID?) {
+    guard let pid = state.blindedPlayerId,
+          pid == finishedPlayerId else { return }
+    state.blindedTurnsRemaining = max(0, state.blindedTurnsRemaining - 1)
+    if state.blindedTurnsRemaining == 0 {
+        state.blindedPlayerId = nil
+    }
 }
 
 func ceAdvanceTurn(state: inout CrazyEightsGameState, skips: Int) {

@@ -22,7 +22,17 @@ struct CrazyEightsSettingsView: View {
 
             Toggle("Shot Caller UNO", isOn: $settings.shotCallerEnabled)
             Toggle("THE BOMB", isOn: $settings.bombEnabled)
-            Stepper("Bomb draw per opponent: \(settings.bombDrawCount)", value: $settings.bombDrawCount, in: 1...10)
+            Stepper("Bomb draw per opponent: \(settings.bombDrawCount)", value: $settings.bombDrawCount, in: 1...20)
+#if DEBUG
+//            Toggle("DEBUG: every number card is a bomb", isOn: $settings.debugAllNumbersAreBombs)
+//                .disabled(!settings.bombEnabled)
+#endif
+            Toggle("Fog of War card", isOn: $settings.fogEnabled)
+            if settings.fogEnabled {
+                Stepper("Fog cards in deck: \(settings.fogCardCount)", value: $settings.fogCardCount, in: 1...20)
+                Stepper("Fog duration (turns): \(settings.fogBlindTurns)", value: $settings.fogBlindTurns, in: 1...5)
+            }
+            Toggle("Allow 7-0 hand swap rule", isOn: $settings.allowSevenZeroRule)
 
             Toggle("Allow join in progress", isOn: $settings.allowJoinInProgress)
         }

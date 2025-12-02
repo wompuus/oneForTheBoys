@@ -36,6 +36,11 @@ enum DeckBuilder {
         for _ in 0..<config.wildDraw4Count {
             deck.append(UNOCard(color: .wild, value: .wildDraw4))
         }
+        if config.fogEnabled {
+            for _ in 0..<max(0, config.fogCardCount) {
+                deck.append(UNOCard(color: .wild, value: .fog))
+            }
+        }
 
         return deck.shuffled()
     }

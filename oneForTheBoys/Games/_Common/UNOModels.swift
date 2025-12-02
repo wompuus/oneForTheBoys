@@ -20,6 +20,7 @@ enum UNOValue: Codable, Equatable, Hashable {
     case draw2
     case wild
     case wildDraw4
+    case fog
 }
 
 extension UNOValue: CustomStringConvertible {
@@ -31,6 +32,7 @@ extension UNOValue: CustomStringConvertible {
         case .draw2: return "+2"
         case .wild: return "Wild"
         case .wildDraw4: return "Wild+4"
+        case .fog: return "Fog"
         }
     }
 }

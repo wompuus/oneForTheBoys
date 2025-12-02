@@ -65,6 +65,7 @@ struct CardView: View {
         case .draw2:         return "+2"
         case .wild:          return "8"      // big 8 for wild
         case .wildDraw4:     return "+4"
+        case .fog:           return "FOG"
         }
     }
 
@@ -147,6 +148,7 @@ struct SmallCardView: View {
         case .draw2:         return "+2"
         case .wild:          return "8"
         case .wildDraw4:     return "+4"
+        case .fog:           return "FOG"
         }
     }
 
@@ -277,6 +279,52 @@ struct ShotCallerSheet: View {
             Button("Confirm") {
                 if let targetId = targetId ?? players.first?.id {
                     pick(chosenColor, targetId)
+                }
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding()
+        .onAppear {
+            if targetId == nil { targetId = players.first?.id }
+        }
+    }
+}
+
+// MARK: - Swap hand picker (7 rule)
+
+struct SwapHandSheet: View {
+    let title: String
+    let buttonTitle: String
+    let players: [Player]
+    let pick: (UUID) -> Void
+    @State private var targetId: UUID?
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Text(title)
+                .font(.headline)
+                .multilineTextAlignment(.center)
+
+            Picker("Target", selection: Binding(
+                get: { targetId ?? players.first?.id },
+                set: { targetId = $0 }
+            )) {
+                ForEach(players) { p in
+                    HStack {
+                        Text(p.name)
+                        if targetId == p.id {
+                            Image(systemName: "arrow.left.arrow.right")
+                                .foregroundColor(.yellow)
+                        }
+                    }
+                    .tag(Optional(p.id))
+                }
+            }
+            .pickerStyle(.wheel)
+
+            Button(buttonTitle) {
+                if let target = targetId ?? players.first?.id {
+                    pick(target)
                 }
             }
             .buttonStyle(.borderedProminent)

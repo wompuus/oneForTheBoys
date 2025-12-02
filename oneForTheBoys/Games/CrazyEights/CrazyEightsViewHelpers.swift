@@ -1,21 +1,24 @@
 import SwiftUI
 
-func crazyOpponentPosition(index: Int, total: Int, in size: CGSize) -> CGPoint {
+func crazySeatPosition(slot: Int, total: Int, in size: CGSize) -> CGPoint {
     let cx = size.width / 2
-    let cy = size.height * 0.22
-    let radius = min(size.width, size.height) * 0.34
+    let cy = size.height * 0.20
+    let radius = min(size.width, size.height) * 0.42
 
-    let angle = crazyOpponentAngle(index: index, total: total)
+    let angle = crazySeatAngle(slot: slot, total: total)
 
     let x = cx + cos(angle) * radius
     let y = cy - sin(angle) * radius
     return CGPoint(x: x, y: y)
 }
 
-func crazyOpponentAngle(index: Int, total: Int) -> CGFloat {
+func crazySeatAngle(slot: Int, total: Int) -> CGFloat {
+    if total == 2 {
+        return CGFloat.pi / 2.0
+    }
     let startAngle = CGFloat.pi * 5.0 / 6.0
     let endAngle   = CGFloat.pi * 1.0 / 6.0
-    let t: CGFloat = total <= 1 ? 0.5 : CGFloat(index) / CGFloat(max(total - 1, 1))
+    let t: CGFloat = total <= 1 ? 0.5 : CGFloat(slot) / CGFloat(max(total - 1, 1))
     return startAngle + (endAngle - startAngle) * t
 }
 
@@ -47,6 +50,7 @@ func crazySortHand(_ hand: [UNOCard]) -> [UNOCard] {
             case .draw2:         return 22
             case .wild:          return 30
             case .wildDraw4:     return 31
+            case .fog:           return 32
             }
         }
 

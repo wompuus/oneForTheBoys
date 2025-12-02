@@ -36,8 +36,12 @@ struct CrazyEightsGameState: Codable, Equatable {
     // Rules state
     var unoCalled: Set<UUID> = []
     var shotCallerTargetId: UUID? = nil
+    var shotCallerDemands: [UUID: [UNOColor]] = [:]
     var bombCardId: UUID? = nil
     var bombEvent: BombEvent? = nil
+    var blindedPlayerId: UUID? = nil
+    var blindedTurnsRemaining: Int = 0
+    var pendingSwapPlayerId: UUID? = nil
 
     // End-of-round state
     var winnerId: UUID? = nil
@@ -81,13 +85,14 @@ extension CrazyEightsGameState {
 
         if let targetId = shotCallerTargetId,
            currentPlayerId == targetId,
-           let forcedColor = chosenWildColor {
-            if card.color == .wild { return true }
+           let forcedColor = shotCallerDemands[targetId]?.first {
+            if card.color == .wild || card.value == .wildDraw4 { return true }
             return card.color == forcedColor
         }
 
         if case .wild = card.value { return true }
         if case .wildDraw4 = card.value { return true }
+        if case .fog = card.value { return true }
 
         let effectiveTopColor: UNOColor
         if top.color == .wild, let forced = chosenWildColor {
