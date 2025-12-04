@@ -1,4 +1,5 @@
 import Foundation
+import OFTBShared
 
 struct LobbyInfo: Codable, Equatable {
     var id: String
@@ -22,11 +23,15 @@ enum NetworkMessage: Codable {
     case leaveLobby(playerId: UUID)
     case playerReady(playerId: UUID, isReady: Bool)
 
-    // Game Phase
+    // Game Phase (generic)
     case gameAction(gameId: GameID, payload: Data)
     case gameState(gameId: GameID, payload: Data)
     case gameStateRequest(gameId: GameID)
     case hostLeft(gameId: GameID, reason: String)
+
+    // Crazy Eights typed messages
+    case crazyEightsClient(CrazyEightsClientMessage)
+    case crazyEightsServer(CrazyEightsServerMessage)
 }
 
 extension NetworkMessage {
@@ -43,6 +48,8 @@ extension NetworkMessage {
         case .gameState(let gameId, _): return "gameState(\(gameId.rawValue))"
         case .gameStateRequest(let gameId): return "gameStateRequest(\(gameId.rawValue))"
         case .hostLeft(let gameId, _): return "hostLeft(\(gameId.rawValue))"
+        case .crazyEightsClient: return "crazyEightsClient"
+        case .crazyEightsServer: return "crazyEightsServer"
         }
     }
 }

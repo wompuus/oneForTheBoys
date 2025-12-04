@@ -1,4 +1,5 @@
 import SwiftUI
+import OFTBShared
 
 /// Type-erased game session to allow app/lobby code to work with any registered game.
 final class AnyGameSession {

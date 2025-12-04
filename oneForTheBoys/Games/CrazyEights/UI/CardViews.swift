@@ -1,4 +1,5 @@
 import SwiftUI
+import OFTBShared
 
 // Found this on the internet. I'm not sure if it will work but would like global variables for the colors in the game, would make it easier in the future to add skins and stuff. Remember, modularity.
 extension Color {
@@ -237,7 +238,7 @@ struct ColorPickerSheet: View {
 // MARK: - Shot caller picker (wild + target)
 
 struct ShotCallerSheet: View {
-    let players: [Player]
+    let players: [CrazyEightsPlayer]
     let pick: (UNOColor, UUID) -> Void
     @State private var chosenColor: UNOColor = .red
     @State private var targetId: UUID?
@@ -295,7 +296,7 @@ struct ShotCallerSheet: View {
 struct SwapHandSheet: View {
     let title: String
     let buttonTitle: String
-    let players: [Player]
+    let players: [CrazyEightsPlayer]
     let pick: (UUID) -> Void
     @State private var targetId: UUID?
 

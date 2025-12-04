@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Workspace
+   version = "1.0">
+   <Group
+      location = "group:oftb-server"
+      name = "oftb-server">
+      <FileRef
+         location = "group:Package.resolved">
+      </FileRef>
+      <FileRef
+         location = "group:Package.swift">
+      </FileRef>
+      <Group
+         location = "group:Sources"
+         name = "Sources">
+         <Group
+            location = "group:App"
+            name = "App">
+            <FileRef
+               location = "group:CrazyEightsRoomManager.swift">
+            </FileRef>
+         </Group>
+         <FileRef
+            location = "group:main.swift">
+         </FileRef>
+      </Group>
+   </Group>
+   <FileRef
+      location = "group:OFTBShared">
+   </FileRef>
+   <FileRef
+      location = "container:oneForTheBoys.xcodeproj">
+   </FileRef>
+</Workspace>

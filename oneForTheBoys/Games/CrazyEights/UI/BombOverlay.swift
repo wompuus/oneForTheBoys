@@ -1,4 +1,5 @@
 import SwiftUI
+import OFTBShared
 
 struct BombOverlay: View {
     let event: CrazyEightsGameState.BombEvent

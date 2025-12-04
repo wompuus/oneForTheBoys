@@ -1,4 +1,5 @@
 import SwiftUI
+import OFTBShared
 
 struct CrazyEightsSettingsView: View {
     @Binding var settings: CrazyEightsSettings

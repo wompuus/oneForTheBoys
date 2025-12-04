@@ -1,5 +1,6 @@
 import SwiftUI
 import CoreGraphics
+import OFTBShared
 
 struct DartsGameView: View {
     @ObservedObject var store: GameStore<DartsGameState, DartsAction>
@@ -89,8 +90,7 @@ struct DartsGameView: View {
                         name: winner.name,
                         isHost: store.isHost,
                         onExit: {
-                            guard store.isHost else { return }
-                            NotificationCenter.default.post(name: .returnToLobbyRequested, object: nil)
+                            NotificationCenter.default.post(name: .backToLobbyScreenRequested, object: nil)
                         }
                     )
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)

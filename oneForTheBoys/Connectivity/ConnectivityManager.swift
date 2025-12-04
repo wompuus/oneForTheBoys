@@ -1,6 +1,7 @@
 import Foundation
 import MultipeerConnectivity
 import UIKit
+import OFTBShared
 actor ConnectivityManager: GameTransport {
     struct FoundLobby: Identifiable {
         let id = UUID()
@@ -24,6 +25,7 @@ actor ConnectivityManager: GameTransport {
     private(set) var currentLobbyId: String?
     private var hostDisplayName: String
     private var activeGameId: GameID?
+    private var localPlayerId: UUID?
 
     private var primaryHandlers: [(NetworkMessage, MCPeerID) -> Void] = []
     private var additionalHandlers: [(NetworkMessage, MCPeerID) -> Void] = []
@@ -40,6 +42,10 @@ actor ConnectivityManager: GameTransport {
         activeGameId = defaultGameId
         session.delegate = delegateProxy
         delegateProxy.attach(self)
+    }
+
+    func setLocalPlayerId(_ id: UUID) {
+        localPlayerId = id
     }
 
     func setActiveGame(_ gameId: GameID?) {
@@ -145,12 +151,24 @@ actor ConnectivityManager: GameTransport {
 
     func send<A: Codable>(_ action: A) async {
         guard let gameId = activeGameId else { return }
+        if gameId == .crazyEights, let ceAction = action as? CrazyEightsAction {
+            let roomCode = currentLobbyId ?? "p2p"
+            guard let playerId = localPlayerId else { return }
+            let message = CrazyEightsClientMessage.sendAction(roomCode: roomCode, playerId: playerId, action: ceAction)
+            await sendNetworkMessage(.crazyEightsClient(message))
+            return
+        }
         guard let payload = try? JSONEncoder().encode(action) else { return }
         await sendNetworkMessage(.gameAction(gameId: gameId, payload: payload))
     }
 
     func broadcast<S: Codable>(_ state: S) async {
         guard let gameId = activeGameId else { return }
+        if gameId == .crazyEights, let ceState = state as? CrazyEightsGameState {
+            let message = CrazyEightsServerMessage.stateUpdated(state: ceState)
+            await sendNetworkMessage(.crazyEightsServer(message))
+            return
+        }
         guard let payload = try? JSONEncoder().encode(state) else { return }
         await sendNetworkMessage(.gameState(gameId: gameId, payload: payload))
     }

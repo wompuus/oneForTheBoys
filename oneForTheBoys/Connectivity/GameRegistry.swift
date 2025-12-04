@@ -1,4 +1,5 @@
 import SwiftUI
+import OFTBShared
 
 /// Registry for game modules to allow discovery, metadata display, and compatibility checks.
 final class GameRegistry {

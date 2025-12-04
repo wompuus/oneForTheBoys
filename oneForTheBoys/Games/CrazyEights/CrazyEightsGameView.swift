@@ -1,5 +1,6 @@
 import SwiftUI
 import Foundation
+import OFTBShared
 
 struct CEOpponent: Identifiable {
     let id: UUID
@@ -100,11 +101,11 @@ let localPlayerId: UUID
 
     var body: some View {
         GeometryReader { geo in
+            let totalSlots = max(seatingOrder.count, 2)
             ZStack {
                 Color.tableRed.ignoresSafeArea()
 
                 ForEach(otherPlayers, id: \.id) { p in
-                    let totalSlots = max(seatingOrder.count, 2)
                     OpponentSeatView(
                         player: CEOpponent(id: p.id, name: p.name, handCount: p.handCount, avatar: p.avatar, seatSlot: p.seatSlot),
                         isCurrentTurn: state.currentPlayerId == p.id,
@@ -135,12 +136,24 @@ let localPlayerId: UUID
                 }
 
                 CardFlightOverlay(flights: flights)
+
+                if gameOver && store.isHost {
+                    VStack {
+                        Spacer()
+                        Button("Back to Lobby") {
+                            NotificationCenter.default.post(name: .backToLobbyScreenRequested, object: nil)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .padding(.bottom, 24)
+                    }
+                    .ignoresSafeArea()
+                }
             }
         }
         .sheet(item: $activeModal) { modal in
             switch modal {
             case .shotCaller(let card):
-                ShotCallerSheet(players: otherPlayers.map { Player(id: $0.id, name: $0.name, deviceName: "", hand: []) }) { color, target in
+                ShotCallerSheet(players: state.players.filter { $0.id != localPlayerId }) { color, target in
                     store.send(.intentPlay(card: card, chosenColor: color, targetId: target))
                     activeModal = nil
                 }
@@ -153,7 +166,7 @@ let localPlayerId: UUID
                 SwapHandSheet(
                     title: "Choose a player to swap hands with",
                     buttonTitle: "Swap",
-                    players: otherPlayers.map { Player(id: $0.id, name: $0.name, deviceName: "", hand: []) }
+                    players: state.players.filter { $0.id != localPlayerId }
                 ) { target in
                     store.send(.intentPlay(card: card, chosenColor: nil, targetId: nil))
                     store.send(.swapHand(targetId: target))
@@ -163,7 +176,7 @@ let localPlayerId: UUID
                 SwapHandSheet(
                     title: "Choose a player to blind",
                     buttonTitle: "Apply fog",
-                    players: otherPlayers.map { Player(id: $0.id, name: $0.name, deviceName: "", hand: []) }
+                    players: state.players.filter { $0.id != localPlayerId }
                 ) { target in
                     store.send(.intentPlay(card: card, chosenColor: nil, targetId: target))
                     activeModal = nil
@@ -571,26 +584,89 @@ let localPlayerId: UUID
         drawLoopTask?.cancel()
         guard !isDrawing, !bombResolving, !awaitingSwap else { return }
         isDrawing = true
-        drawLoopTask = Task { [weak store] in
+        drawLoopTask = Task { @MainActor [weak store] in
+            guard let store else { isDrawing = false; return }
             while !Task.isCancelled {
-                await MainActor.run {
-                    store?.send(.intentDraw(playerId: localPlayerId))
-                }
+                store.send(.intentDraw(playerId: localPlayerId))
                 try? await Task.sleep(nanoseconds: 240_000_000)
-                let s = await MainActor.run { store?.state }
-                guard let s else { break }
-                let isBombing = await MainActor.run { bombResolving }
-                if isBombing || s.pendingDraw == 0 || s.currentPlayerId != localPlayerId || s.winnerId != nil || !s.started {
+                let s = store.state
+                if bombResolving || s.pendingDraw == 0 || s.currentPlayerId != localPlayerId || s.winnerId != nil || !s.started {
                     break
                 }
             }
-            await MainActor.run {
-                isDrawing = false
-            }
+            isDrawing = false
         }
     }
 }
 
 private extension Array where Element == Int {
     var joinedDescription: String { map(String.init).joined(separator: "|") }
+}
+
+// MARK: - Local helpers (UI-only)
+
+private func crazySeatPosition(slot: Int, total: Int, in size: CGSize) -> CGPoint {
+    let cx = size.width / 2
+    let cy = size.height * 0.20
+    let radius = min(size.width, size.height) * 0.42
+
+    let angle = crazySeatAngle(slot: slot, total: total)
+
+    let x = cx + cos(angle) * radius
+    let y = cy - sin(angle) * radius
+    return CGPoint(x: x, y: y)
+}
+
+private func crazySeatAngle(slot: Int, total: Int) -> CGFloat {
+    if total == 2 {
+        return CGFloat.pi / 2.0
+    }
+    let startAngle = CGFloat.pi * 5.0 / 6.0
+    let endAngle   = CGFloat.pi * 1.0 / 6.0
+    let t: CGFloat = total <= 1 ? 0.5 : CGFloat(slot) / CGFloat(max(total - 1, 1))
+    return startAngle + (endAngle - startAngle) * t
+}
+
+private func crazyDeckPosition(in size: CGSize) -> CGPoint {
+    CGPoint(x: size.width * 0.35, y: size.height * 0.45)
+}
+
+private func crazyDiscardPosition(in size: CGSize) -> CGPoint {
+    CGPoint(x: size.width * 0.65, y: size.height * 0.45)
+}
+
+private func crazySortHand(_ hand: [UNOCard]) -> [UNOCard] {
+    hand.sorted { lhs, rhs in
+        let colorRank: (UNOColor) -> Int = { color in
+            switch color {
+            case .red: return 0
+            case .blue: return 1
+            case .yellow: return 2
+            case .green: return 3
+            case .wild: return 4
+            }
+        }
+
+        let valueRank: (UNOValue) -> Int = { value in
+            switch value {
+            case .number(let n): return n
+            case .skip:          return 20
+            case .reverse:       return 21
+            case .draw2:         return 22
+            case .wild:          return 30
+            case .wildDraw4:     return 31
+            case .fog:           return 32
+            }
+        }
+
+        let lc = colorRank(lhs.color)
+        let rc = colorRank(rhs.color)
+        if lc != rc { return lc < rc }
+
+        let lv = valueRank(lhs.value)
+        let rv = valueRank(rhs.value)
+        if lv != rv { return lv < rv }
+
+        return lhs.id.uuidString < rhs.id.uuidString
+    }
 }

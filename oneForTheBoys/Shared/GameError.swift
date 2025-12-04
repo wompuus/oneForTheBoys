@@ -1,8 +1,3 @@
-import Foundation
+import OFTBShared
 
-enum GameError: Error, Codable {
-    case invalidAction
-    case desync
-    case corruptedPayload
-    case versionMismatch
-}
+typealias GameError = OFTBShared.GameError

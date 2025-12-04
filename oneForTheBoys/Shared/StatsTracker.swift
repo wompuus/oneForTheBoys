@@ -1,4 +1,5 @@
 import Foundation
+import OFTBShared
 
 actor StatsTracker {
     static let shared = StatsTracker()

@@ -1,4 +1,5 @@
 import SwiftUI
+import OFTBShared
 
 struct ProfileEditorView: View {
     @State private var workingProfile: PlayerProfile

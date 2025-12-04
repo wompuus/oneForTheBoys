@@ -1,41 +1,5 @@
 import SwiftUI
-
-enum GameID: String, Codable, CaseIterable {
-    case crazyEights
-    case darts
-    // case highCard (future)
-}
-
-extension GameID {
-    var displayName: String {
-        switch self {
-        case .crazyEights: return "Crazy Eights"
-        case .darts: return "Darts"
-        }
-    }
-}
-
-struct GameCatalogEntry {
-    let id: GameID
-    let displayName: String
-    let iconSymbol: String
-    let maxPlayers: Int
-    let difficultyLevel: String // e.g., "Easy", "Medium"
-}
-
-struct GamePolicy {
-    let minPlayers: Int
-    let maxPlayers: Int
-    let isTurnBased: Bool
-    let allowsRejoin: Bool
-    let supportsSpectators: Bool
-}
-
-// Future-proofing for V2
-enum TransportMode {
-    case p2p
-    case hybrid
-}
+import OFTBShared
 
 protocol GameModule {
     associatedtype State: Codable & Equatable
@@ -77,9 +41,4 @@ protocol GameModule {
 
 extension GameModule {
     static func leaveAction(for playerId: UUID) -> Action? { nil }
-}
-
-protocol GameTransport {
-    func send<A: Codable>(_ action: A) async
-    func broadcast<S: Codable>(_ state: S) async
 }

@@ -1,4 +1,5 @@
 import SwiftUI
+import OFTBShared
 
 struct AvatarView: View {
     let config: AvatarConfig

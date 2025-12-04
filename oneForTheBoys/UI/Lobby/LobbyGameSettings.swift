@@ -1,10 +1,18 @@
 import Foundation
+import OFTBShared
+
+enum LobbyConnectionMode: String, Codable, CaseIterable, Equatable {
+    case localP2P
+    case onlineServer
+}
 
 /// Container for lobby-selected game settings. Supports Crazy Eights today, extend with more games later.
 struct LobbyGameSettings: Codable, Hashable {
     var gameId: GameID = GameID.allCases.first ?? .crazyEights
     var crazyEights: CrazyEightsSettings = CrazyEightsSettings()
     var darts: DartsSettings = DartsSettings()
+    var connectionMode: LobbyConnectionMode = .localP2P
+    var onlineRoomCode: String?
 
     var activeSettingsData: Data? {
         switch gameId {
@@ -19,6 +27,8 @@ struct LobbyGameSettings: Codable, Hashable {
         self.gameId = gameId
         self.crazyEights = CrazyEightsSettings()
         self.darts = DartsSettings()
+        self.connectionMode = .localP2P
+        self.onlineRoomCode = nil
     }
 
     var summaryDescription: String {

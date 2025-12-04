@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import OFTBShared
 
 actor ProfileStore {
     static let shared = ProfileStore()

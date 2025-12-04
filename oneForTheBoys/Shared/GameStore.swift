@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import OFTBShared
 
 @MainActor
 final class GameStore<State: Codable & Equatable, Action: Codable>: ObservableObject {

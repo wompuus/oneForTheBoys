@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		FC846C2B2EDEA0DA007F8E3B /* OFTBShared in Frameworks */ = {isa = PBXBuildFile; productRef = FC846C2A2EDEA0DA007F8E3B /* OFTBShared */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		FC5810732ECD5A5B00DA16E4 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -65,6 +69,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FC846C2B2EDEA0DA007F8E3B /* OFTBShared in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -125,6 +130,7 @@
 			);
 			name = oneForTheBoys;
 			packageProductDependencies = (
+				FC846C2A2EDEA0DA007F8E3B /* OFTBShared */,
 			);
 			productName = oneForTheBoys;
 			productReference = FC5810602ECD5A5800DA16E4 /* oneForTheBoys.app */;
@@ -208,6 +214,9 @@
 			);
 			mainGroup = FC5810572ECD5A5800DA16E4;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				FC846C292EDEA0DA007F8E3B /* XCLocalSwiftPackageReference "OFTBShared" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = FC5810612ECD5A5800DA16E4 /* Products */;
 			projectDirPath = "";
@@ -571,6 +580,20 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		FC846C292EDEA0DA007F8E3B /* XCLocalSwiftPackageReference "OFTBShared" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = OFTBShared;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		FC846C2A2EDEA0DA007F8E3B /* OFTBShared */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OFTBShared;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = FC5810582ECD5A5800DA16E4 /* Project object */;
 }

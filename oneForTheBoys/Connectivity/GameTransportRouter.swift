@@ -1,4 +1,5 @@
 import Foundation
+import OFTBShared
 
 /// Routes networked game messages to the correct registered game store in a game-agnostic way.
 /// Register each game module + store, then call `activate()` to bind to ConnectivityManager's onMessage handler.
@@ -87,7 +88,46 @@ final class GameTransportRouter {
             handlers[gameId]?.onStateRequest()
         case .hostLeft(_, let reason):
             onHostLeft?(reason)
+        case .crazyEightsClient(let ceMessage):
+            handleCrazyEightsClientMessage(ceMessage)
+        case .crazyEightsServer(let ceMessage):
+            handleCrazyEightsServerMessage(ceMessage)
         default:
+            break
+        }
+    }
+
+    private func handleCrazyEightsClientMessage(_ message: CrazyEightsClientMessage) {
+        guard let handler = handlers[.crazyEights] else { return }
+        switch message {
+        case .joinRoom:
+            break // handled elsewhere for P2P; server will use this.
+        case .sendAction(_, _, let action):
+            guard let data = try? JSONEncoder().encode(action) else { return }
+            handler.onAction(data)
+        case .createRoom:
+            break
+        case .requestRoomList:
+            break
+        case .readyUpdate:
+            break
+        }
+    }
+
+    private func handleCrazyEightsServerMessage(_ message: CrazyEightsServerMessage) {
+        guard let handler = handlers[.crazyEights] else { return }
+        switch message {
+        case .roomJoined(_, _, let state):
+            guard let data = try? JSONEncoder().encode(state) else { return }
+            handler.onState(data)
+        case .stateUpdated(let state):
+            guard let data = try? JSONEncoder().encode(state) else { return }
+            handler.onState(data)
+        case .error:
+            break
+        case .roomList:
+            break
+        case .readySnapshot:
             break
         }
     }
